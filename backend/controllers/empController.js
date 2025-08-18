@@ -1,8 +1,23 @@
 // controllers/empController.js
 import mongoose from 'mongoose';
 import Employee from '../models/Employee.js';
+import redisClient from '../config/redisClient.js';
+import { publisher } from '../config/messageClient.js';
+
 
 const isValidObjectId = id => mongoose.Types.ObjectId.isValid(id);
+
+export const getAnalyticsCounts = async () => {
+  const data = {};
+  for await (const key of redisClient.scanIterator({ MATCH: 'analytics:route:*' })) {
+    for (const k of key) {
+      const count = await redisClient.get(k);
+      const route = k.replace('analytics:route:', '');
+      data[route] = count;
+    }
+  }
+  return data;
+};
 
 export const addEmployee = async (req, res) => {
   const { name, email, department } = req.body;
@@ -16,6 +31,7 @@ export const addEmployee = async (req, res) => {
   try {
     console.log({ name, email, department })
     const emp = await Employee.create({ name, email, department });
+    await publisher.publish('employee:operations', 'EMPLOYEE ADDED');
     return res
       .status(201)
       .json({ message: "Employee added.", employee: emp });
@@ -28,15 +44,19 @@ export const addEmployee = async (req, res) => {
   }
 };
 
+
 export const getEmployees = async (req, res) => {
   try {
-    const employees = await Employee.find({});
-    res.status(200).json({ employees, message: 'Employees fetched successfully.' });
+    const employees = await Employee.find();
+    const routeCounts = await getAnalyticsCounts();
+    // console.log(routeCounts)
+    res.status(200).json({ employees, message: 'Employees fetched successfully.', routeCounts });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Error fetching employees.' });
   }
 };
+
 
 export const getEmployeeById = async (req, res) => {
   const { id } = req.params;
@@ -63,6 +83,7 @@ export const updateEmployee = async (req, res) => {
       context: 'query'
     });
     if (!updated) return res.status(404).json({ message: 'Employee not found.' });
+    await publisher.publish('employee:operations', 'EMPLOYEE UPDATED');
     res.status(200).json({ message: 'Employee updated successfully.', employee: updated });
   } catch (err) {
     if (err.name === 'ValidationError') {
@@ -81,6 +102,7 @@ export const deleteEmployee = async (req, res) => {
   try {
     const deleted = await Employee.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: 'Employee not found.' });
+    await publisher.publish('employee:operations', 'EMPLOYEE DELETED');
     res.status(200).json({ message: 'Employee deleted successfully.', employee: deleted });
   } catch (err) {
     console.error(err);

@@ -7,19 +7,21 @@ import {
   deleteEmployee
 } from "../controllers/empController.js";  // Adjust path as needed
 
-export const router = express.Router();
+const empRouter = express.Router();
 
 // Create a new employee
-router.post("/", addEmployee);
+empRouter.post("/", addEmployee);
 
 // Get all employees
-router.get("/", getEmployees);
+empRouter.get("/", getEmployees);
 
 // Get a specific employee by ID
-router.get("/:id", getEmployeeById);
+empRouter.get("/:id", getEmployeeById);
 
 // Update an employee by ID
-router.put("/:id", updateEmployee);
+empRouter.put("/:id", updateEmployee);
 
 // Delete an employee by ID
-router.delete("/:id", deleteEmployee);
+empRouter.delete("/:id", deleteEmployee);
+
+export default empRouter;

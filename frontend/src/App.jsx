@@ -1,81 +1,60 @@
-import React, { useState, useEffect } from "react";
+// src/App.jsx
+import React, { useState } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
-import {
-  getEmployees,
-  addEmployee,
-  updateEmployee,
-  deleteEmployee,
-} from "./services/empService";
-import EmployeeForm from "./components/EmployeeForm";
-import EmployeeList from "./components/EmployeeList";
-import "./App.css"
+
+import Login from "./components/Login.jsx";
+import Register from "./components/Register.jsx";
+import EmployeeManager from "./EmployeeManager.jsx" // Import it here
+
+import { login, register } from "./services/authService.js";
 
 function App() {
-  const [employees, setEmployees] = useState([]);
-  const [editData, setEditData] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();
 
-  const fetchEmployees = async () => {
+  const handleLogin = async (credentials) => {
     try {
-      const res = await getEmployees();
-      setEmployees(res.data.employees || []);
-    } catch (err) {
-      Swal.fire("Error", err.response?.data?.message || "Failed to fetch", "error");
+        const res = await login(credentials);
+        if (res.status === 200) {
+            setIsAuthenticated(true);
+            Swal.fire("Logged in!", "Welcome back.", "success");
+            navigate("/");
+        }
+    } catch {
+        Swal.fire("Error", "Login failed. Please try again.", "error");
     }
   };
 
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
-  const handleSubmit = async (emp) => {
+  const handleRegister = async (credentials) => {
     try {
-      if (emp?.id) {
-        await updateEmployee(emp);
-        Swal.fire("Updated!", "Employee updated successfully.", "success");
-      } else {
-        await addEmployee(emp);
-        Swal.fire("Added!", "Employee added successfully.", "success");
+      const res = await register(credentials);
+      if (res.status === 201) {
+        Swal.fire("Registered!", "Account created. Please log in.", "success");
+        navigate("/login");
       }
-      setEditData(null);
-      fetchEmployees();
-    } catch (err) {
-      Swal.fire("Error", err.response?.data?.message || "Operation failed", "error");
+    } catch {
+      Swal.fire("Error", "Registration failed.", "error");
     }
   };
 
-  const handleDelete = async (id) => {
-    const ok = await Swal.fire({
-      title: "Confirm delete",
-      text: "This action cannot be undone.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Delete",
-    });
-    if (ok.isConfirmed) {
-      try {
-        await deleteEmployee(id);
-        Swal.fire("Deleted!", "Employee removed.", "success");
-        fetchEmployees();
-      } catch (err) {
-        Swal.fire("Error", err.response?.data?.message || "Delete failed", "error");
-      }
-    }
-  };
+  return (
+    <Routes>
+      <Route path="/login" element={<Login onLogin={handleLogin} />} />
+      <Route path="/register" element={<Register onRegister={handleRegister} />} />
 
-return (
-    <div className="page-container">
-      <div className="left-side">
-        <h1>Employee Manager</h1>
-        <EmployeeForm onSubmit={handleSubmit} editData={editData} />
-      </div>
-      <div className="right-side">
-        <EmployeeList
-          employees={employees}
-          onEdit={setEditData}
-          onDelete={handleDelete}
-        />
-      </div>
-    </div>
+      <Route
+        path="/"
+        element={
+          isAuthenticated ? <EmployeeManager /> : <Navigate to="/login" replace />
+        }
+      />
+
+      <Route
+        path="*"
+        element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />}
+      />
+    </Routes>
   );
 }
 
